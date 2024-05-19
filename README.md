@@ -5,6 +5,10 @@
 | 5027221042 |Nicholas Marco Weinandra |
 | 5027221052 | Mochamad Zidan Hadipratama |
 
+## Daftar Isi
+- [Soal 0](#soal-0)
+
+
 # Topologi
 ![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/e232f273-a6a0-45cf-a2ba-535dbff73aa6)
 
