@@ -15,6 +15,7 @@ iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE -s 10.64.0.0/16
 
 apt-get update
 apt-get install isc-dhcp-relay -y
+service isc-dhcp-relay start
 ```
 ## Irulan
 ```
@@ -106,6 +107,8 @@ $TTL    604800
 @       IN      A       10.64.1.2 ; IP Vladimir Harkonen
 @       IN      AAAA    ::1
 ```
+- Restart bind9 dengan command `service bind9 restart`
+
 ## Testing
 - ping atreides.it01.com
 ![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/b49a253e-a5f0-48c1-97d6-61d705d63dfa)
@@ -113,7 +116,7 @@ $TTL    604800
 ![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/01ddb588-6e82-4b74-99d1-e9c0f9e5b213)
 
 # Soal 1
-> Lakukan konfigurasi sesuai dengan peta yang sudah diberikan.
+> Lakukan konfigurasi sesuai dengan peta yang sudah diberikan. Semua CLIENT harus menggunakan konfigurasi dari DHCP Server.
 
 # Konfigurasi Network
 ## Arakis (DHCP Relay)
@@ -247,3 +250,163 @@ iface eth0 inet static
 	gateway 10.64.4.1
 	up echo nameserver 192.168.122.1 > /etc/resolv.conf
 ```
+
+# Soal 2 & 3
+> Client yang melalui House Harkonen mendapatkan range IP dari [prefix IP].1.14 - [prefix IP].1.28 dan [prefix IP].1.49 - [prefix IP].1.70 (2)
+> Client yang melalui House Atreides mendapatkan range IP dari [prefix IP].2.15 - [prefix IP].2.25 dan [prefix IP].2 .200 - [prefix IP].2.210 (3)
+
+## Node Mohiam
+- Setelah melakukan setup, edit konfigurasi file `/etc/default/isc-dhcp-server`
+```
+INTERFACESv4="eth0"
+```
+- Kemudian, edit file konfigurasi `/etc/dhcp/dhcpd.conf` sesuai dengan perintah soal. Prefix IP kelompok kami adalah 10.64
+```
+# Default lease time dan max lease time
+default-lease-time 300; # 5 menit
+
+# Subnet untuk House Harkonen
+subnet 10.64.1.0 netmask 255.255.255.0 {
+    range 10.64.1.14 10.64.1.28;
+    range 10.64.1.49 10.64.1.70;
+    option routers 10.64.1.1;
+    option broadcast-address 10.64.1.255;
+    option domain-name-servers 10.64.3.2;
+    default-lease-time 300; # 5 menit
+    max-lease-time 5220; 
+}
+
+# Subnet untuk House Atreides
+subnet 10.64.2.0 netmask 255.255.255.0 {
+    range 10.64.2.15 10.64.2.25;
+    range 10.64.2.200 10.64.2.210;
+    option routers 10.64.2.1;
+    option broadcast-address 10.64.2.255;
+    option domain-name-servers 10.64.3.2;
+    default-lease-time 1200; # 20 menit
+    max-lease-time 5220; 
+}
+
+subnet 10.64.3.0 netmask 255.255.255.0{}
+subnet 10.64.4.0 netmask 255.255.255.0{}
+```
+- Restart DHCP Server dengan menggunakan command `service isc-dhcp-server restart`
+
+# Soal 4
+> Client mendapatkan DNS dari Princess Irulan dan dapat terhubung dengan internet melalui DNS tersebut
+
+## Node Irulan
+- Setelah melakukan setup pada Irulan, edit konfigurasi file `/etc/bind/named.conf.options` agar client dapat terhubung dengan internet
+```
+options {
+        directory "/var/cache/bind";
+
+        forwarders {
+                192.168.122.1;
+        };
+
+        //========================================================================
+        // If BIND logs error messages about the root key being expired,
+        // you will need to update your keys.  See https://www.isc.org/bind-keys
+        //========================================================================
+        //dnssec-validation auto;
+        allow-query { any; };
+        auth-nxdomain no;
+        listen-on-v6 { any; };
+};
+```
+- Selanjutnya, kita perlu melakukan setting pada DHCP Relay.
+## Node Arakis
+- Setelah melakukan setup pada Arakis, edit konfigurasi file `/etc/default/isc-dhcp-relay`
+```
+# IP DHCP Server -> IP Mohiam
+SERVERS="10.64.3.3"
+# Interfaces to listen on
+INTERFACES="eth1 eth2 eth3 eth4"
+# Options to pass to the DHCP relay
+OPTIONS=""
+```
+- Lalu, restart DHCP Relay dengan command `service isc-dhcp-relay restart`
+
+## Testing
+- Ping google.com dari Client
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/81f81a21-f777-4bb7-8563-ae51cc10136c)
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/6ae4c516-3001-4112-b89b-9b9d54bf0fcf)
+
+# Soal 5
+> Durasi DHCP server meminjamkan alamat IP kepada Client yang melalui House Harkonen selama 5 menit sedangkan pada client yang melalui House Atreides selama 20 menit. Dengan waktu maksimal dialokasikan untuk peminjaman alamat IP selama 87 menit
+
+## Node Irulan
+- Edit file konfigurasi `/etc/dhcp/dhcpd.conf` sesuai dengan perintah soal.
+```
+# Default lease time dan max lease time
+default-lease-time 300; # 5 menit
+
+# Subnet untuk House Harkonen
+subnet 10.64.1.0 netmask 255.255.255.0 {
+    range 10.64.1.14 10.64.1.28;
+    range 10.64.1.49 10.64.1.70;
+    option routers 10.64.1.1;
+    option broadcast-address 10.64.1.255;
+    option domain-name-servers 10.64.3.2;
+    default-lease-time 300; # 5 menit
+    max-lease-time 5220; 
+}
+
+# Subnet untuk House Atreides
+subnet 10.64.2.0 netmask 255.255.255.0 {
+    range 10.64.2.15 10.64.2.25;
+    range 10.64.2.200 10.64.2.210;
+    option routers 10.64.2.1;
+    option broadcast-address 10.64.2.255;
+    option domain-name-servers 10.64.3.2;
+    default-lease-time 1200; # 20 menit
+    max-lease-time 5220; 
+}
+
+subnet 10.64.3.0 netmask 255.255.255.0{}
+subnet 10.64.4.0 netmask 255.255.255.0{}
+```
+- Restart DHCP Server dengan menggunakan command `service isc-dhcp-server restart`
+
+# Soal 6
+> Vladimir Harkonen memerintahkan setiap worker(harkonen) PHP, untuk melakukan konfigurasi virtual host untuk website berikut dengan menggunakan php 7.3.
+## Node Vladimir, Rabban, Feyd
+- Setelah melakukan setup, kita perlu download terlebih dahulu file website menggunakan `wget`, kemudian melakukan unzip
+```
+wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1lmnXJUbyx1JDt2OA5z_1dEowxozfkn30' -O /var/www/harkonen.com
+unzip -o /var/www/harkonen.com -d /var/www/
+rm /var/www/harkonen.com
+mv /var/www/modul-3 /var/www/harkonen.com
+```
+- Kemudian lakukan konfigurasi pada nginx sebagai berikut
+```
+cp /etc/nginx/sites-available/default /etc/nginx/sites-available/harkonen.com
+ln -s /etc/nginx/sites-available/harkonen.com /etc/nginx/sites-enabled/
+rm /etc/nginx/sites-enabled/default
+
+echo 'server {
+    listen 80;
+    server_name _;
+
+    root /var/www/harkonen.com;
+    index index.php index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php7.3-fpm.sock; 
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}' > /etc/nginx/sites-available/harkonen.com
+
+service nginx restart
+```
+
+## Testing
+- Jalankan command `lynx localhost` pada PHP Worker
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/3dd9b328-5f45-4e83-9e4a-9748953e7c60)
