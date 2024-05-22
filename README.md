@@ -571,6 +571,8 @@ service nginx restart
 
 # Soal 8
 ## Analisis
+Analisis dapat dilihat pada file berikut [IT01_Spice.pdf](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/files/15398388/IT01_Spice.pdf)
+
 
 # Soal 9
 > Dengan menggunakan algoritma Least-Connection, lakukan testing dengan menggunakan 3 worker, 2 worker, dan 1 worker sebanyak 1000 request dengan 10 request/second, kemudian tambahkan grafiknya pada peta.
@@ -744,4 +746,139 @@ service nginx start
 
 # Soal 13
 > Semua data yang diperlukan, diatur pada Chani dan harus dapat diakses oleh Leto, Duncan, dan Jessica.
-- 
+- Setup Chani
+```
+apt install mariadb-server -y
+service mysql start
+mysql -u root -p <<EOF
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '123';
+CREATE DATABASE laravel;
+FLUSH PRIVILEGES;
+EOF
+cat << 'EOF' > /etc/mysql/my.cnf
+# The MariaDB configuration file
+#
+# The MariaDB/MySQL tools read configuration files in the following order:
+# 1. "/etc/mysql/mariadb.cnf" (this file) to set global defaults,
+# 2. "/etc/mysql/conf.d/*.cnf" to set global options.
+# 3. "/etc/mysql/mariadb.conf.d/*.cnf" to set MariaDB-only options.
+# 4. "~/.my.cnf" to set user-specific options.
+#
+# If the same option is defined multiple times, the last one will apply.
+#
+# One can use all long options that the program supports.
+# Run program with --help to get a list of available options and with
+# --print-defaults to see which it would actually understand and use.
+
+#
+# This group is read both both by the client and the server
+# use it for options that affect everything
+#
+[client-server]
+
+# Import all .cnf files from configuration directory
+!includedir /etc/mysql/conf.d/
+!includedir /etc/mysql/mariadb.conf.d/
+
+[mysqld]
+bind-address = 0.0.0.0
+EOF
+service mysql restart
+ufw allow 3306
+sudo iptables -A INPUT -p tcp --dport 3306 -j ACCEPT
+service iptables save
+sudo systemctl restart mysql
+apt-get install ufw
+ufw allow 3306
+```
+# Node Dmitri
+```
+mysql -u root -h 10.64.4.2 -p -P 3306
+```
+
+## Testing
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/822394fa-0eaf-4ba3-af75-baee329b98b1)
+
+
+# Soal 14
+> Leto, Duncan, dan Jessica memiliki atreides Channel sesuai dengan quest guide berikut. Jangan lupa melakukan instalasi PHP8.0 dan Composer
+## Hasil
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/18794e63-f24c-4845-8bc8-81a6daf670e7)
+
+# Soal 15-17
+> atreides Channel memiliki beberapa endpoint yang harus ditesting sebanyak 100 request dengan 10 request/second. Tambahkan response dan hasil testing pada peta.
+POST /auth/register (15)
+POST /auth/log
+in (16)
+GET /me (17)
+- File analisis dapat diakses di [IT01_Spice.pdf](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/files/15398428/IT01_Spice.pdf)
+
+# Soal 18
+> Untuk memastikan ketiganya bekerja sama secara adil untuk mengatur atreides Channel maka implementasikan Proxy Bind pada Stilgar untuk mengaitkan IP dari Leto, Duncan, dan Jessica
+- Konfigurasi di Stilgar
+```
+cat << 'EOF' > /etc/nginx/sites-available/default
+
+
+upstream backend {
+    least_conn;
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+    server 10.64.2.4;
+    server 10.64.2.3;
+    server 10.64.2.2;
+}
+
+server {
+    listen 80;
+
+    # Apply IP whitelist to all locations
+    location / {
+
+        #Enable Basic Authentication
+        auth_basic "Restricted Area";
+        auth_basic_user_file /etc/nginx/supersecret/htpasswd;
+
+        
+
+        # Proxy settings
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /dune {
+       
+
+        # Redirect to the external site using HTTPS
+        proxy_pass https://www.dunemovie.com.au/;
+        proxy_set_header Host www.dunemovie.com.au;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Optionally, to make sure the URL path is preserved
+        proxy_redirect off;
+    }
+}
+EOF
+```
+
+# Soal 19
+> Untuk meningkatkan performa dari Worker, coba implementasikan PHP-FPM pada Leto, Duncan, dan Jessica. Untuk testing kinerja naikkan 
+- pm.max_children
+- pm.start_servers
+- pm.min_spare_servers
+- pm.max_spare_servers
+sebanyak tiga percobaan dan lakukan testing sebanyak 100 request dengan 10 request/second kemudian berikan hasil analisisnya pada PDF.
+- Hasil Testing : [IT01_Spice.pdf](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/files/15398473/IT01_Spice.pdf)
+
+# Soal 20
+>Nampaknya hanya menggunakan PHP-FPM tidak cukup untuk meningkatkan performa dari worker maka implementasikan Least-Conn pada Stilgar. Untuk testing kinerja dari worker tersebut dilakukan sebanyak 100 request dengan 10 request/second. 
+- Install PHP FPM `apt-get install php-fpm -y`
+- Melakukan konfigurasi berikut di setiap worker
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/4e67f75d-860e-4151-9d9f-8d5c4fa0a799)
+
