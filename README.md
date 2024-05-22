@@ -433,3 +433,315 @@ service nginx restart
 ## Testing
 - Jalankan command `lynx localhost` pada PHP Worker
 ![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/3dd9b328-5f45-4e83-9e4a-9748953e7c60)
+
+# Soal 7
+> Aturlah agar Stilgar dari fremen dapat dapat bekerja sama dengan maksimal, lalu lakukan testing dengan 5000 request dan 150 request/second
+## Node Stilgar
+- Install Setup
+```
+apt-get update
+apt-get install nginx -y
+service nginx stop
+apt-get install apache2 -y
+a2enmod proxy
+a2enmod proxy_http
+a2enmod proxy_balancer
+a2enmod lbmethod_byrequests
+a2enmod lbmethod_bybusyness
+a2enmod lbmethod_bytraffic
+apt-get install apache2-utils -y
+```
+## Konfigurasi Load Balancer pada
+```
+echo "===============Setup Load Balancer Apache2 default====================="
+cat << 'EOF' > /etc/apache2/sites-available/000-default.conf
+<VirtualHost *:80>
+    <Proxy balancer://mycluster>
+        BalancerMember http://10.64.1.2
+        BalancerMember http://10.64.1.3
+        BalancerMember http://10.64.1.4
+    </Proxy>
+    ProxyPass / balancer://mycluster/
+    ProxyPassReverse / balancer://mycluster/
+</VirtualHost>
+EOF
+```
+## Testing
+- Jalankan `ab -n 5000 -c 150 http://10.64.4.3/`
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/32287f6b-efb0-4203-977f-4d6d086f48f0)
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/9a577801-b77e-4923-b594-b082c87c9070)
+
+# Soal 8
+> Karena diminta untuk menuliskan peta tercepat menuju spice, buatlah analisis hasil testing dengan 500 request dan 50 request/second masing-masing algoritma Load Balancer dengan ketentuan sebagai berikut:
+Nama Algoritma Load Balancer
+Report hasil testing pada Apache Benchmark
+Grafik request per second untuk masing masing algoritma. 
+Analisis
+- Setup Load Balancer Least Conn
+```
+echo "===============Setup Load Balancer NGINX Least Connections====================="
+cat << 'EOF' > /etc/nginx/sites-available/default
+upstream backend {
+    least_conn;
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend;
+    }
+}
+EOF
+```
+- SEtup Load Balancer Round Robin
+```
+echo "===============Setup Load Balancer NGINX Round Robin====================="
+cat << 'EOF' > /etc/nginx/sites-available/default
+upstream backend {
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend/;
+    }
+}
+EOF
+service nginx start
+```
+- Setup Load Balancer IP Hash
+```
+echo "===============Setup Load Balancer NGINX IP Hash====================="
+cat << 'EOF' > /etc/nginx/sites-available/default
+upstream backend {
+    ip_hash;
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend/index.php;
+    }
+}
+EOF
+service nginx restart
+```
+- Setup Load Balancer Gen Hash
+```
+echo "===============Setup Load Balancer NGINX Generic Hash====================="
+cat << 'EOF' > /etc/nginx/sites-available/default
+upstream backend {
+    hash $request_uri consistent;
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend/index.php;
+    }
+}
+EOF
+service nginx restart
+```
+## Testing
+- Round Robin
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/5794a757-b7b5-4a96-9ac8-214b3d57eeaa)
+- IP Hash
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/3fab12e5-14f7-4a3b-bb7a-8a192e86b965)
+- Least Conn
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/95fed44c-d899-46df-b435-a154a27b34e7)
+- Generic Hash
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/080dd89d-9de8-4c9f-8496-b9e5db86ecb7)
+
+# Soal 8
+## Analisis
+
+# Soal 9
+> Dengan menggunakan algoritma Least-Connection, lakukan testing dengan menggunakan 3 worker, 2 worker, dan 1 worker sebanyak 1000 request dengan 10 request/second, kemudian tambahkan grafiknya pada peta.
+- Konfigurasi Endpoints
+```
+cat << 'EOF' > /etc/nginx/sites-available/default
+upstream backend {
+    least_conn;
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+    # server 10.64.2.4;
+    # server 10.64.2.3;
+    # server 10.64.2.2;
+}
+
+server {
+    listen 80;
+
+    # Apply IP whitelist to all locations
+    location / {
+
+        # Enable Basic Authentication
+        # auth_basic "Restricted Area";
+        # auth_basic_user_file /etc/nginx/supersecret/htpasswd;
+
+        # Proxy settings
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /dune {
+
+        # Redirect to the external site using HTTPS
+        proxy_pass https://www.dunemovie.com.au/;
+        proxy_set_header Host www.dunemovie.com.au;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Optionally, to make sure the URL path is preserved
+        proxy_redirect off;
+    }
+}
+EOF
+```
+- Restart nginx `service nginx restart`
+## Testing
+- 3 Worker
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/8094650d-b537-4f2c-8d5d-b7963c30a012)
+- 2 Worker
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/22ae9f0c-ed19-4b1d-b69f-92267d8e4d60)
+- 1 Worker
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/93b5eb6b-b405-4e2e-927f-b4965e41e7b5)
+
+# Soal 10
+> Selanjutnya coba tambahkan keamanan dengan konfigurasi autentikasi di LB dengan dengan kombinasi username: “secmart” dan password: “kcksyyy”, dengan yyy merupakan kode kelompok. Terakhir simpan file “htpasswd” nya di /etc/nginx/supersecret/ 
+- Buat direktori supersecret
+```
+mkdir /etc/nginx/supersecret
+```
+- Jalankan command `htpasswd` dan set username `secmart` dan password `kcksit01`
+```
+htpasswd -c /etc/nginx/supersecret/htpasswd secmart
+```
+## Testing
+- Masuk ke `lynx 10.64.4.3`, isi username `secmart` dan pass `kcksit01`
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/648ca425-fdc8-4355-905a-86a35049c7a9)
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/3dfb33cb-ae9b-4ed2-8730-3510bbfddc01)
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/e5f39eda-16f2-4ed9-a7d7-38b5c4ca853d)
+
+# Soal 11
+> Lalu buat untuk setiap request yang mengandung /dune akan di proxy passing menuju halaman https://www.dunemovie.com.au/.
+- Setiap request akan di proxy passing ke www.dunemovie.com.au
+```
+cat << 'EOF' > /etc/nginx/sites-available/default
+# Define IP whitelist in a reusable map
+map $remote_addr $ip_allowed {
+    default 0;
+    10.64.1.37 1;
+    10.64.1.67 1;  # Example IP address allowed to access
+    10.64.2.203 1;
+    10.64.2.207 1;  # Another example IP address allowed to access
+    # Add more IP addresses as needed
+}
+
+upstream backend {
+    least_conn;
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+}
+
+server {
+    listen 80;
+
+    # Apply IP whitelist to all locations
+    location / {
+        # Allow only specific IP addresses
+        if ($ip_allowed = 0) {
+            return 403;  # Forbidden
+        }
+
+        # Enable Basic Authentication
+        auth_basic "Restricted Area";
+        auth_basic_user_file /etc/nginx/supersecret/htpasswd;
+
+        # Proxy settings
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /dune {
+        # Apply IP whitelist to /dune location
+        if ($ip_allowed = 0) {
+            return 403;  # Forbidden
+        }
+
+        # Redirect to the external site using HTTPS
+        proxy_pass https://www.dunemovie.com.au/;
+        proxy_set_header Host www.dunemovie.com.au;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Optionally, to make sure the URL path is preserved
+        proxy_redirect off;
+    }
+}
+EOF
+service nginx restart
+```
+# Testing
+- Akses `lynx 10.64.4.3/dune`
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/26c8bc9f-979d-4f2c-a6d2-b15c9753d564)
+
+# Soal 12
+> Selanjutnya LB ini hanya boleh diakses oleh client dengan IP [Prefix IP].1.37, [Prefix IP].1.67, [Prefix IP].2.203, dan [Prefix IP].2.207
+## Node Stilgar
+- Konfigurasi fixed IP address
+```
+echo "===============Setup Load Balancer NGINX Round Robin====================="
+cat << 'EOF' > /etc/nginx/sites-available/default
+upstream backend {
+    server 10.64.1.2;
+    server 10.64.1.3;
+    server 10.64.1.4;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend/;
+    }
+}
+EOF
+service nginx start
+```
+- Restart `service nginx restart`
+
+## Testing
+![image](https://github.com/nicholasmarco27/jarkom-Modul-3-2024-IT01/assets/80316798/15050ed2-dbc5-449e-8625-88beb842375e)
+- masuk ke website dari client
+
+# Soal 13
+> Semua data yang diperlukan, diatur pada Chani dan harus dapat diakses oleh Leto, Duncan, dan Jessica.
+- 
